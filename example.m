@@ -24,8 +24,9 @@ g0locfull[[{2,4,6},{2,4,6}]]=g0loc;
 
 
 (* then we can use op[name,para...] to construct any operator in second quatization represntation,  examples *)
-dm[i_,j_]:=op["HOP",i,"UP",j,"UP"];
-dens[i_]:=dm[i,i];
+dmup[i_,j_]:=op["HOP",i,"UP",j,"UP"];
+dmdn[i_,j_]:=op["HOP",i,"DN",j,"DN"];
+dens[i_]:=dmup[i,i];
 holes[i_]:=add[op["C",1],mul[op["C",-1],dens[i]]];
 
 (use add and mul to combine operators)
@@ -38,4 +39,7 @@ using TeXForm[op1]
 (* then the expectation value can be evaluated as *)
 
 op1expt=wick[op1,g0locfull];
+
+op2=mul[holes[1],dmdn[1,2]];
+op2expt=wick[op2,g0locfull];
 
