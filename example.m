@@ -29,7 +29,7 @@ dmdn[i_,j_]:=op["HOP",i,"DN",j,"DN"];
 dens[i_]:=dmup[i,i];
 holes[i_]:=add[op["C",1],mul[op["C",-1],dens[i]]];
 
-(use add and mul to combine operators)
+(* use add and mul to combine operators *)
 op1=mul[dens[1],dens[2],dens[3]];
 (* If wicktex.m has been load, this generate a operator as 
   (1)\hat{f}^\dagger_{1} \hat{f}_{1} \hat{f}^\dagger_{3} \hat{f}_{3} \hat{f}^\dagger_{5} \hat{f}_{5}

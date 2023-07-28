@@ -1,3 +1,4 @@
+(* path "/home/chengzhengqian/share_workspace/czq_julia_package/WickMathematica/wick.m" *)
 (* implement the Wick theorem *)
 (* f default symobl for fermion operator ,with spin*)
 (* sum[prod...] *)
@@ -94,16 +95,21 @@ wick[s_,m_]:=Module[{prods=getProds[s],l=Length[getProds[s]],result=0,i},For[i=1
 (*  now, we need some facillaties to create basic operators*)
 (* this convension for spin is (1,2),(3,4) ->((1,up),(1,dn)) ((2,up),(2,dn))*)
 (* one orbital first *)
-op[name_,para___]:=Which[name=="CR",opCreation[para],name=="AN",opAnnihilation[para],name=="N",opDensity[para],name=="H",opHubbard[para],name=="NT",opDensityTotal[para],name=="C",opConstant[para],name=="HOP",opHopping[para]]
+op[name_,para___]:=Which[name=="CR",opCreation[para],name=="AN",opAnnihilation[para],name=="N",opDensity[para],name=="H",opHubbard[para],name=="NT",opDensityTotal[para],name=="C",opConstant[para],name=="HOP",opHopping[para]];
 spinToNumber[spin_]:=Which[spin=="UP",0,spin=="DN",1];
-orbitalSpinToNumber[orbital_,spin_]:=(2*orbital-1)+spinToNumber[spin]
-opCreation[orbital_,spin_]:=sum[prod[1,{fd[orbitalSpinToNumber[orbital,spin]]}]]
-opAnnihilation[orbital_,spin_]:=sum[prod[1,{f[orbitalSpinToNumber[orbital,spin]]}]]
-opDensity[orbital_,spin_]:=Module[{idx=orbitalSpinToNumber[orbital,spin]},sum[prod[1,{fd[idx],f[idx]}]]]
-opHubbard[orbital_]:=mul[opDensity[orbital,"UP"],opDensity[orbital,"DN"]]
-opDensityTotal[orbital_]:=add[opDensity[orbital,"UP"],opDensity[orbital,"DN"]]
+orbitalSpinToNumber[orbital_,spin_]:=(2*orbital-1)+spinToNumber[spin];
+opCreation[orbital_,spin_]:=sum[prod[1,{fd[orbitalSpinToNumber[orbital,spin]]}]];
+opAnnihilation[orbital_,spin_]:=sum[prod[1,{f[orbitalSpinToNumber[orbital,spin]]}]];
+opDensity[orbital_,spin_]:=Module[{idx=orbitalSpinToNumber[orbital,spin]},sum[prod[1,{fd[idx],f[idx]}]]];
+opHubbard[orbital_]:=mul[opDensity[orbital,"UP"],opDensity[orbital,"DN"]];
+opDensityTotal[orbital_]:=add[opDensity[orbital,"UP"],opDensity[orbital,"DN"]];
 opConstant[c_]:=sum[prod[c,{}]];
-opHopping[i_,spini_,j_,spinj_]:=mul[opCreation[i,spini],opAnnihilation[j,spinj]]
+opHopping[i_,spini_,j_,spinj_]:=mul[opCreation[i,spini],opAnnihilation[j,spinj]];
+(* Add function that support the native index *)
+opCreation[idx_]:=sum[prod[1,{fd[idx]}]];
+opAnnihilation[idx_]:=sum[prod[1,{f[idx]}]];
+opHopping[idxi_,idxj_]:=mul[opCreation[idxi],opAnnihilation[idxj]];
+
 
 (* we need to generate the full Green function for spin up *)
 geneGFromSpinUp[g_]:=Module[{dim=Length[g],result,i,j},result=ConstantArray[0,{2*dim,2*dim}];For[i=1,i<=dim,i++,For[j=1,j<=dim,j++,result[[orbitalSpinToNumber[i,"UP"],orbitalSpinToNumber[j,"UP"]]]=g[[i,j]];result[[orbitalSpinToNumber[i,"DN"],orbitalSpinToNumber[j,"DN"]]]=g[[i,j]];]];result]
@@ -119,3 +125,121 @@ geneGFromSpinUp[g_]:=Module[{dim=Length[g],result,i,j},result=ConstantArray[0,{2
 
 (* we move the tex part to a different file *)
 
+
+(* we should use the dictionary to store the intermediate values, and add option to show the progress *)
+(* take the case from example.m *)
+(* wick[op1,g0locfull] *)
+(* wickProd[op1[[1]],g0locfull] *)
+(* we could use downvalues as a mechanism to implement hashmap *)
+(* prodDict[op1[[1,2]]]=1; *)
+(* DownValues[prodDict]; *)
+(* Clear[prodDict]; *)
+(* or is there better way? There is hashtable *)
+(* prods=getProds[op1]; *)
+(* getCoeff[prods[[1]]]; *)
+(* getOps[prods[[1]]]; *)
+(* examples of using HashTable *)
+(* hashtable=CreateDataStructure["HashTable"]; *)
+(* hashtable["Lookup",prods[[1]]]; *)
+(* hashtable["KeyExistsQ",prods[[1]]]; *)
+(* hashtable["Insert",prods[[1,2]]->2]; *)
+(* hashtable["KeyDropAll"]; *)
+(* general design, but default, {}->1, {op}->0, and with the knowlegth  *)
+
+(* review the the basic struture *)
+(*
+  a general operator, sum[prods....]
+  a product, prod[coeff, term]
+  a term, term={ops...}
+  a single operator, f[idx]/fd[idx]
+  
+ *)
+
+(* ht=CreateDataStructure["HashTable"]; *)
+(* s=op["HOP",2,1]; *)
+(* p=s[[1]] *)
+(* we use s_ for sum[...], p_ for prod[..], t_ for {...},o_ for individual operator *)
+(* m=g0locfull; *)
+(* add val,  *)
+addExptValDropIfZero[ht_,p_prod,val_]:=Module[{c=getCoeff[p],t=getOps[p],v=FullSimplify[val]},
+				    If[!SameQ[0,v],ht["Insert",t->val/c],ht["KeyDrop",t]]];
+
+addExptVal[ht_,p_prod,val_]:=Module[{c=getCoeff[p],t=getOps[p],v=FullSimplify[val]},
+				    ht["Insert",t->val/c]];
+(* convert a sum to prod if it has only one terms *)
+
+toProd[s_sum]:=If[Length[getProds[s]]==1,s[[1]],s];
+
+(* assuming the single particle density matrix *)
+(* addExptVal[ht,p,123] *)
+(* addExptVal[ht,p,0] *)
+(* toProd[op["HOP",2,1]] *)
+(* toProd[add[op["HOP",2,1],op["HOP",2,2]]] *)
+(* initialize the single particle expectation values *)
+initExptHT[ht_,m_?(MatrixQ[#]&)]:=Module[{dim=Dimensions[m]},
+	Table[addExptValDropIfZero[ht,toProd[op["HOP",i,j]],m[[i,j]]],
+	      {i,1,dim[[1]]},{j,1,dim[[2]]}] ];
+
+initExptHT[m_?(MatrixQ[#]&)]:=Module[{ht},
+				     ht=CreateDataStructure["HashTable"];
+				     initExptHT[ht,m];
+				     ht
+			      ];
+
+(* initExptHT[ht,m] *)
+(* using the hashtable to get single particle density matrix, if the key (term, i.e list of signle operators) are not in ht, assuming the value is zero *)
+(* we use HT to indicates the evaluation relies on  *)
+(* p=toProd[op["HOP",3,1]]; *)
+(* HT for hashtable, zero, and one number of term does not need ht *)
+wickProdZeroHT[p_]:=getCoeff[p];
+wickProdOneHT[p_]:=0;
+wickProdTwoHT[p_prod,ht_]:=Module[{c=getCoeff[p],terms=getOps[p]},
+			   If[ht["KeyExistsQ",terms],c*ht["Lookup",terms],0]];
+
+(* wickProdTwoHT[toProd[op["HOP",4,5]],ht] *)
+(* the hashtable is only a reference, i.e, use "Copy"  to make a fresh copy*)
+(* ht1=ht; *)
+(* ht["KeyDropAll"] *)
+(* for prod with number of terms larger than 2 *)
+wickProdNHT[p_prod,ht_]:=Module[
+	{c=getCoeff[p],numTerms=Length[getOps[p]],terms=getOps[p],
+	 first,tail,i,temp,currentPair,remains,result=0},
+	If[ht["KeyExistsQ",terms],
+	   c*ht["Lookup",terms],
+	   first=terms[[1]];tail=Drop[terms,{1}];
+	   For[i=1,i<=numTerms-1,i++,
+	       currentPair={first,tail[[i]]};
+	       remains=Drop[tail,{i}];
+	       temp=wickProdTwoHT[prod[1,currentPair],ht];
+	       result+=temp*(-1)^(i-1)*wickProdHT[prod[1,remains],ht]];
+	   result=FullSimplify[result];
+	   ht["Insert",terms->result];
+	   result*c
+	]];
+
+(* tread a general prod *)
+wickProdHT[p_prod,ht_]:=Module[
+	{c=getCoeff[p],numTerms=Length[getOps[p]]},
+	If[c===0,
+	   0,
+	   Which[
+		   numTerms==0,wickProdZeroHT[p],
+		   numTerms==1,wickProdOneHT[p],
+		   numTerms==2,wickProdTwoHT[p,ht],
+		   numTerms>2,wickProdNHT[p,ht]]]];
+
+(* ht=CreateDataStructure["HashTable"]; *)
+(* initExptHT[ht,g0locfull]; *)
+(* p=toProd[mul[op["HOP",1,3],op["HOP",2,4],op["C",coeff2]]]; *)
+(* wickProdNHT[p,ht]-wick[sum[p],g0locfull] *)
+(* ht=initExptHT[g0locfull]; *)
+
+wickHT[s_sum,ht_]:=Module[
+	{prods=getProds[s],l,result=0,i},
+	l=Length[prods];
+	For[i=1,i<=l,i++,
+	    result+=wickProdHT[prods[[i]],ht]];
+	FullSimplify[result]];
+
+(* op1=mul[op["HOP",1,3],op["HOP",2,4]]; *)
+(* wickHT[op1,ht]-wick[op1,g0locfull] *)

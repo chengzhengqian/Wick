@@ -10,7 +10,8 @@
 (* "/home/chengzhengqian/.WolframEngine/Applications" *)
 Needs["TeXUtilities`"]
 
-Format[sum[arg___],TeXForm]:=TeXVerbatim[StringRiffle[Map[prodToTeX,List[arg]],"+"]]
+Format[sum[arg___],TeXForm]:=TeXVerbatim[StringRiffle[Map[prodToTeX,List[arg]],"+"]];
+Format[p_prod,TeXForm]:=TeXVerbatim[prodToTeX[p]];
 prodToTeX[prod_]:="("<>ToString[prod[[1]],TeXForm]<>")"<>termToTeX[prod[[2]]];
 termToTeX[term_]:=StringRiffle[Map[opToTeX,term]," "]
 opToTeX[fd[id_]]:="\\hat{f}^\\dagger_{"<>ToString[id]<>"}";
