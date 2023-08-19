@@ -6,11 +6,19 @@ ClearAll[uop,mop,op,cr,an,up,dn,mul,cm,am,order,number];
 Unprotect[Power];
 Power[KroneckerDelta[x_,y_],p_Integer?Positive]:=KroneckerDelta[x,y]
 Protect[Power];
-Unprotect[KroneckerDelta];
 (* only for this package *)
 (* up, dn is reserved for spin up and spin dn *)
+Unprotect[KroneckerDelta];
 KroneckerDelta[{___,up,___},{___,dn,___}]:=0;
+KroneckerDelta[{___,dn,___},{___,up,___}]:=0;
+KroneckerDelta[up,dn]:=0;
+KroneckerDelta[dn,up]:=0;
 Protect[KroneckerDelta];
+(* this does not work, one should add this to sort *)
+(* Unprotect[Order]; *)
+(* Order[up,dn]=1; *)
+(* Order[dn,up]=-1; *)
+(* Protect[Order]; *)
 
 
 uop[]:=uop[{},{}];
@@ -18,14 +26,25 @@ op[]:=mop[CreateDataStructure["HashTable"]];
 op[c_]:=addTo[op[],uop[]->c];
 op[cr_List,an_List,c_]:=addTo[op[],uopToc[cr,an,c]];
 op[cr_List,an_List]:=op[cr,an,1];
+(* the mapping form assuming uop is sorted *)
+signreverse[n_]:=(-1)^(n*(n-1)/2);
+conj[x:uop[cr_,an_]->c_]:=uop[an,cr]->Conjugate[c]*signreverse[numcr[x]]*signreverse[numan[x]];
 
+conj[mop[ht_]]:=Module[{result=op[],key},
+		       Do[addTo[result,conj[key->ht["Lookup",key]]],{key,ht["Keys"]}];
+		result];
+(* get the constant part *)
+const[mop[ht_]]:=ht["Lookup",uop[{},{}],0&];
+(*matrix representation of a operator,   *)
+repr[x_mop,basis_]:=Module[
+	{conjbasis=Map[conj,basis],i,j},
+	Table[const[i.x.j],{i,conjbasis},{j,basis}]];
 
 cr[x_uop]:=x[[1]];
 an[x_uop]:=x[[2]];
 
 (* this will update the first mop , assuming uop is sorted*)
-
-
+(* uop[cr_,an_]->c assume up are sorted, see uopToc to generate this form *)
 addTo[mop[ht_],uop[cr_,an_]->c_]:=Module[
 	{term=uop[cr,an],val},
 	val=Simplify[ht["Lookup",term,0&]+c];
@@ -36,7 +55,7 @@ addTo[mop[ht_],uop[cr_,an_]->c_]:=Module[
 	mop[ht]];
 
 addTo[x_mop,mop[ht2_]]:=((addTo[x,#->ht2["Lookup",#]]&) /@ ht2["Keys"];x);
-
+addTo[x_mop]:=x;
 addTo[x_mop,val__]:= (addTo[x,#] & /@List[val];x);
 
 (* now, we need to implement multiplication *)
@@ -116,9 +135,12 @@ am[a_,b_]:=a.b+b.a;
 (* ClearAll[defaultg0]; *)
 (* default way to denote the single particle density matrix, n,p,q *)
 (* it is better to use string, as user may accidently define n,p,q *)
+(* after some consideration, I decide to use n,w,m, (as p may be used as 1-n) *)
+(* Also, m can be viewed as a vertical flip from w, so like the conjugation *)
+(* so, n, w,m *)
 defaultg0[uop[{idx1_},{idx2_}]]:=Subscript["n",idx1,idx2];
-defaultg0[uop[{idx1_,idx2_},{}]]:=Subscript["p",idx1,idx2];
-defaultg0[uop[{},{idx1_,idx2_}]]:=Subscript["q",idx1,idx2];
+defaultg0[uop[{idx1_,idx2_},{}]]:=Subscript["w",idx1,idx2];
+defaultg0[uop[{},{idx1_,idx2_}]]:=Subscript["m",idx1,idx2];
 
 (* fn, function to evalute single particle operator, see defaultg0, the second and third are two hashtable for intermediate values (uop->{val,idx}) *)
 (* set default  name for intermediate calculation *)
@@ -162,7 +184,7 @@ evalwick[x:uop[{cr1f_,cr1___},an1_],tp_tape]:=Module[
 		(*we convert sequence to list*)
 		cr1List=List[cr1],
 		nan1=Length[an1],
-		result=0,i,term,val
+		result=0,i,term,val,ncr1
 	},
 	ncr1=Length[cr1List];
 	Do[
@@ -211,6 +233,9 @@ eval[mop[ht_],name_String,tp_tape]:=Module[
 	output["Insert",name->result];
 	result];
 
+(* we add a function to get the full form of a given mop by its name *)
+eval[name_String,tp_tape]:=tp[[3]]["Lookup",name]//.Normal[Normal[tp[[2]]]];
+
 (* so we need to export these to julia file *)
 (* we first need to overload CForm *)
 (* Subscript["a",1]//CForm; *)
@@ -235,7 +260,9 @@ export[tp_tape,name_,args_,results_,outputDir_]:=Module[
 	tmp=getTmp[tp];
 	output=getOutput[tp];
 	num=tmp["Lookup","num"];
-	WriteString[file,"tmp=zeros("<>ToString[num]<>")\n"];
+	(* WriteString[file,"tmp=zeros("<>ToString[num]<>")\n"]; *)
+	WriteString[file,
+		    "tmp=Array{Float64,1}(undef,"<>ToString[num]<>")\n"];
 	Do[
 		WriteString[file,
 			    "tmp["<>ToString[i]<>"]="
@@ -245,3 +272,49 @@ export[tp_tape,name_,args_,results_,outputDir_]:=Module[
 	   ,results];
 	WriteString[file,"["<>StringRiffle[results,","]<>"]\nend\n"];
 	Close[file];];
+
+
+
+(* we first just split functions *)
+(* we have tried to using the parallel, but there is actually a overhead, so we first just split the  *)
+(* see
+ /home/chengzhengqian/Documents/research/integer_time_solver/src/one_band_wick_v1_general_n5_G.m L86
+for some script to general parallel code
+ *)
+
+exportSplit[tp_tape,name_,args_,results_,outputDir_,ninterval_]:=Module[
+	{file,tmp,output,ntmp,npart,argswithtmp,i,j,splitlist},
+	tmp=getTmp[tp];
+	output=getOutput[tp];
+	file=OpenWrite[outputDir<>"/"<>name<>".jl"];
+	ntmp=tmp["Lookup","num"];
+	npart=Ceiling[ntmp/ninterval];
+	argswithtmp=Join[args,{"tmp"}];
+	splitlist=Table[{ninterval*(i-1)+1,Min[ninterval*i,ntmp]},{i,1,npart}];
+	(* write the main function *)
+	WriteString[file,"function "<>name<>"("<>StringRiffle[args,","]<>")\n"];
+	WriteString[file,
+		    "tmp=Array{Float64,1}(undef,"<>ToString[ntmp]<>")\n"];
+	Do[
+		WriteString[file,"cal_"<>name<>"_n_"<>ToString[i]<>"("<>StringRiffle[argswithtmp,","]<>")\n"];
+	       ,{i,1,npart}
+	];
+	Map[(WriteString[file,#<>"="<>toString[output["Lookup",#]]<>"\n"])&
+	   ,results];
+	WriteString[file,"["<>StringRiffle[results,","]<>"]\nend\n"];
+	(* write the sub functions *)
+	Do[
+		WriteString[file,"function cal_"<>name<>"_n_"<>ToString[i]<>"("<>StringRiffle[argswithtmp,","]<>")\n"];
+		Do[
+			WriteString[file,
+				    "tmp["<>ToString[j]<>"]="
+					  <>toString[tmp["Lookup",Subscript["tmp",j]]]<>"\n"]
+		       ,{j,splitlist[[i,1]],splitlist[[i,2]]}
+		];
+		WriteString[file,"end\n\n"];
+	       ,{i,1,npart}
+	];
+	Close[file];];
+
+
+
