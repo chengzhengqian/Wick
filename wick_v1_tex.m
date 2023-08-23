@@ -13,7 +13,7 @@ crToTeX[id_]:="\\hat{f}^\\dagger_{"<>indexTexString[id]<>"}";
 anToTeX[id_]:="\\hat{f}_{"<>indexTexString[id]<>"}";
 
 (* set this variable to control how many uops to print in mop *)
-maxPrintTermNumber=100;
+maxPrintTermNumber=10;
 
 Format[x_mop,TeXForm]:=TeXVerbatim[mopToTex[x]];
 mopToTex[mop[ht_]]:=Module[
