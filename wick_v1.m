@@ -318,3 +318,47 @@ exportSplit[tp_tape,name_,args_,results_,outputDir_,ninterval_]:=Module[
 
 
 
+(* put this part in v1 *)
+(* export[tp,name,args,results,outputDir]; *)
+Format[Subscript[x_String,idx__],FortranForm]:=x[idx];
+toFString[expr_]:=StringReplace[ToString[FortranForm[expr]],"\""->""];
+
+
+export[tp_tape,name_,args_,declaration_,results_,outputDir_]:=Module[
+	{file,tmp,num,output,i,ffile,sofile,nresults},
+	(* write .f90 *)
+	tmp=getTmp[tp];
+	output=getOutput[tp];
+	num=tmp["Lookup","num"];
+	nresults=Length[results]; 	(*110*)
+	ffile=outputDir<>"/"<>name<>".f90";
+	sofile=outputDir<>"/"<>name<>".so";
+	file=OpenWrite[ffile];
+	WriteString[file,"subroutine "<>name<>"("<>StringRiffle[args,","]<>")\n"];
+	WriteString[file,declaration];
+	(* compute tmp *)
+	Do[
+		WriteString[file,
+			    "tmp("<>ToString[i]<>")="
+				  <>toFString[tmp["Lookup",Subscript["tmp",i]]]<>"\n"]
+	       ,{i,1,num}];
+	(* write to results *)
+	Do[
+		WriteString[file,
+			    "results("<>ToString[i]<>")="
+				  <>toFString[output["Lookup",results[[i]]]]<>"\n"]
+		,{i,1,nresults}
+	];
+	WriteString[file,"end subroutine "<>name<>"\n"];
+	Close[file];
+	(* write compile script *)
+	file=OpenWrite[outputDir<>"/"<>name<>".sh"];
+	(* ensure gfortran takes the whole line *)
+	WriteString[file, "gfortran -ffree-line-length-0 -O3  -shared -fPIC -march=native "<>ffile<>" -o "<>sofile];
+	Close[file];
+							      ];
+
+
+
+
+
