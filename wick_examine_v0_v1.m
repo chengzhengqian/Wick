@@ -57,11 +57,44 @@ pnew=(pnew//.rules)//FullSimplify;
 differencep=(oldp-pnew)//FullSimplify;
 
 (* so there is a single term  *)
+(* we now check the component form *)
+Get["/home/chengzhengqian/share_workspace/czq_julia_package/WickMathematica/wick_examine_v0_save_pcval.m"];
 
+(* pcvalold=pcval; *)
 
+pcvalold;
 
+projc[t_]:={op[1],dm[t,t,up],dm[t,t,dn],dm[t,t,up].dm[t,t,dn]};
 
+projc1=projc[1];
+projc2=projc[2];
 
+Do[eval[projc1[[i]].projc2[[j]],"p"<>ToString[i]<>ToString[j],tp],{i,1,4},{j,1,4}];
 
+pcnew=Table[getOutput[tp]["Lookup","p"<>ToString[i]<>ToString[j]],
+      {i,1,4},{j,1,4}
+      ];
 
+pcnew=(pcnew//.rules)//FullSimplify;
+
+dpc=(pcnew-pcvalold)//FullSimplify;
+
+(* 3,4 *)
+termproblem=projc1[[3]].projc2[[4]];
+
+diagg0[uop[{{spin_,i_}},{{spin_,j_}}]]:=Subscript[c,i,j];
+diagg0[x_uop]:=0;
+
+tp=tape[diagg0];
+
+eval[termproblem,"problem",tp];
+tmp=getTmp[tp]
+keys=tmp["Keys"];
+key1=keys[[1]];
+val1=tmp["Lookup",key1];
+val1t=tmp["Lookup",val1];
+cr1f=key1[[1,1]]
+cr1=Sequence @@ key1[[1,{2,3}]]
+an1=key1[[2]]
+(* now, we have *)
 

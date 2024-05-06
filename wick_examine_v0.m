@@ -24,8 +24,24 @@ pval=wick[p,g0n3full]//FullSimplify;
 oldresults={proj1,proj2,p,d3,pval};
 Save["/home/chengzhengqian/share_workspace/czq_julia_package/WickMathematica/wick_examine_v0_save.m",oldresults];
 
+(* so most part are correct, To narrow down the problem, we generate a matrix *)
 
+projComponent[i_]:={op["C",1],
+		    op["HOP",i,"UP",i,"UP"],
+		    op["HOP",i,"DN",i,"DN"],
+		    mul[op["HOP",i,"UP",i,"UP"],op["HOP",i,"DN",i,"DN"]]
+		   };
 
+proj1c=projComponent[1];
+proj2c=projComponent[2];
+(* pval component *)
+i=1;j=1
+pcval=Table[
+	(wick[mul[proj1c[[i]],proj2c[[j]]],g0n3full]//FullSimplify),
+	{i,1,4},
+	{j,1,4}];
+pcvalold=pcval;
+Save["/home/chengzhengqian/share_workspace/czq_julia_package/WickMathematica/wick_examine_v0_save_pcval.m",pcvalold];
 
 
 

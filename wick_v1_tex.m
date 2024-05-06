@@ -6,7 +6,9 @@ Format[x_uop,TeXForm]:=TeXVerbatim[uopToTex[x]];
 uopToTex[uop[{},{}]]:="\\hat{1}";
 uopToTex[uop[cr_,an_]]:=StringRiffle[Join[Map[crToTeX,cr],Map[anToTeX,an]]];
 texString[x_]:=ToString[TeXForm[x]];
-indexStringReplace={"\\text{up}"->"\\uparrow","\\text{dn}"->"\\downarrow","\\{"->"","\\}"->""};
+(* the left and right are generated when indexTexString is applied to a list *)
+(* right now, this works for the cases we need *)
+indexStringReplace={"\\text{up}"->"\\uparrow","\\text{dn}"->"\\downarrow","\\{"->"","\\}"->"","\\left"->"","\\right"->""};
 
 indexTexString[x_]:=StringReplace[texString[x],indexStringReplace];
 crToTeX[id_]:="\\hat{f}^\\dagger_{"<>indexTexString[id]<>"}";
